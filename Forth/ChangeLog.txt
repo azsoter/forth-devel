@@ -1,0 +1,20 @@
+v0.0.4
+
+-- Miscellaneous bug fixes to the search order words (they were really broken).
+-- A linked list of all wordlists in the system.
+-- Prettier printing of errors.
+-- Optimize COMPILE, by unwrapping tokens (primitives).
+
+v0.0.3
+
+-- SLITERAL is IMMEDIATE.
+
+v0.0.2
+
+-- Complain if a name is being redefined.
+-- Improvements which words exists and what they do when the compiler is not included.
+-- CASE
+-- Per thread (per run time context) USER variables.
+
+v0.0.1 -- Initial Beta Release.
+
