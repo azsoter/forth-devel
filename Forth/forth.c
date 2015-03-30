@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2014 Andras Zsoter
+* Copyright (c) 2014-2015 Andras Zsoter
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
 #include "forth.h"
 #include "forth_internal.h"
 #include "forth_dict.h"
-
+#include "forth_interface.h"
 
 #undef DEBUG_PARSE
 #undef DEBUG_SEARCH
@@ -246,24 +246,26 @@ static int forth_dots(struct forth_runtime_context *rctx)
 }
 #endif
 // ---------------------------------------------------------------------------------------
-void forth_type0(struct forth_runtime_context *rctx, const char *s)
+int forth_type0(struct forth_runtime_context *rctx, const char *s)
 {
 	size_t len;
 
 	if (0 == s)
 	{
-		return;
+		return 0;
 	}
 
 	len = strlen(s);
 
-	if (0 != len)
+	if (0 == len)
 	{
-		rctx->write_string(rctx, s, len);
+		return 0;
 	}
+
+	return rctx->write_string(rctx, s, len);
 }
 
-void forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell_t len)
+int forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell_t len)
 {
 	char byte_buffer[3];
 	char buff[8];
@@ -275,7 +277,7 @@ void forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell
 
 	if (0 == len)
 	{
-		return;
+		return 0;
 	}
 
 	for(i = 0; i < len; i++)
@@ -284,7 +286,10 @@ void forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell
 	 	{
 			if (i)
                 	{
-                    		rctx->write_string(rctx, buff,8);
+                    		if (0 > rctx->write_string(rctx, buff,8))
+				{
+					return -1;
+				}
                 	}
 			rctx->send_cr(rctx);
 			forth_hdot(rctx, (forth_cell_t)addr);
@@ -296,7 +301,10 @@ void forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell
  		buff[i % 8] = ( (c <128) && (c>31) ) ? c : '.';
 		byte_buffer[0] = forth_val2digit(0x0F & (c >> 4));
 		byte_buffer[1] = forth_val2digit(0x0F & c);
-      		rctx->write_string(rctx, byte_buffer, 3);
+      		if (0 > rctx->write_string(rctx, byte_buffer, 3))
+		{
+			return -1;
+		}
     	}
 
 	cnt = (i % 8) ? (i % 8) : 8;
@@ -307,12 +315,15 @@ void forth_dump(struct forth_runtime_context *rctx, const char *addr, forth_cell
 		byte_buffer[1] = FORTH_CHAR_SPACE;
 		for (i = (8 - cnt); i != 0; i--)
 		{
-      			rctx->write_string(rctx, byte_buffer, 3);
+      			if (0 > rctx->write_string(rctx, byte_buffer, 3))
+			{
+				return -1;
+			}
 		}		
 	}
 
    	rctx->write_string(rctx, buff, cnt);
-	rctx->send_cr(rctx);
+	return rctx->send_cr(rctx);
 }
 // ---------------------------------------------------------------------------------------
 static void forth_skip_delimiters(const char **buffer, forth_cell_t *length, char delimiter)
@@ -697,7 +708,7 @@ static forth_cell_t forth_literal(forth_cell_t *dp, forth_cell_t value)
 }
 
 // ---------------------------------------------------------------------------------------
-static void forth_words(forth_cell_t dictionary[], struct forth_runtime_context *rctx)
+static int forth_words(forth_cell_t dictionary[], struct forth_runtime_context *rctx)
 {
 	//const struct forth_wordlist *wl = (const struct forth_wordlist *)(rctx->wordlists);
 	//const struct forth_wordlist *wl = (const struct forth_wordlist *)(rctx->wordlists);
@@ -709,7 +720,10 @@ static void forth_words(forth_cell_t dictionary[], struct forth_runtime_context 
 	forth_cell_t name_length;
 	char c = FORTH_CHAR_SPACE;
 
-	rctx->send_cr(rctx);
+	if (0 > rctx->send_cr(rctx))
+	{
+		return -1;
+	}
 
 	while (0 != hx)
 	{
@@ -717,14 +731,25 @@ static void forth_words(forth_cell_t dictionary[], struct forth_runtime_context 
 		name_length = (h->flags & (FORTH_HEADER_FLAGS_NAME_LENGTH_MASK));
 		if ((rctx->terminal_width - rctx->terminal_col) <= name_length)
 		{
-			rctx->send_cr(rctx);
+			if (0 > rctx->send_cr(rctx))
+			{
+				return -1;
+			}
 		}
-		rctx->write_string(rctx, (const char *)(&dictionary[hx - ((FORTH_ALIGN(name_length)) / sizeof(forth_cell_t))]), name_length);
-		rctx->write_string(rctx, &c, 1);
+		if (0 > rctx->write_string(rctx, (const char *)(&dictionary[hx - ((FORTH_ALIGN(name_length)) / sizeof(forth_cell_t))]), name_length))
+		{
+			return -1;
+		}
+
+		if (0 > rctx->write_string(rctx, &c, 1))
+		{
+			return -1;
+		}
+
 		hx = h->link;
 	}
 
-	rctx->send_cr(rctx);
+	return rctx->send_cr(rctx);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1106,6 +1131,9 @@ const char *forth_token_name(forth_cell_t token)
 		case FORTH_TOKEN_nest:		return "nest";
 		case FORTH_TOKEN_unnest:	return "unnest";
 		case FORTH_TOKEN_dovar:		return "dovar";
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+		case FORTH_TOKEN_doextern:	return "doextern";
+#endif
 		case FORTH_TOKEN_docreate:	return "docreate";
 		case FORTH_TOKEN_doconst:	return "doconst";
 #if defined(FORTH_USER_VARIABLES)
@@ -1116,7 +1144,7 @@ const char *forth_token_name(forth_cell_t token)
 	return (const char *)0;
 }
 
-static void forth_show_name(struct forth_runtime_context *rctx, forth_cell_t xt)
+static int forth_show_name(struct forth_runtime_context *rctx, forth_cell_t xt)
 {
 	forth_cell_t token_primitive;
 	forth_cell_t name_length;
@@ -1130,7 +1158,7 @@ static void forth_show_name(struct forth_runtime_context *rctx, forth_cell_t xt)
 		p = forth_token_name(token_primitive);
 		if (0 != p)
 		{
-			forth_type0(rctx, p);
+			return forth_type0(rctx, p);
 		}		
 	}
 	else
@@ -1141,16 +1169,18 @@ static void forth_show_name(struct forth_runtime_context *rctx, forth_cell_t xt)
 		{
 			forth_type0(rctx, "noname@");
 			p = forth_format_unsigned(xt, 16, FORTH_CELL_HEX_DIGITS, end);
-			rctx->write_string(rctx, p, (end - p));
+			return rctx->write_string(rctx, p, (end - p));
 		}
 		else
 		{
-			rctx->write_string(rctx, (const char *)(&dictionary[(xt - 2) - ((FORTH_ALIGN(name_length)) / sizeof(forth_cell_t))]), name_length);
+			return rctx->write_string(rctx, (const char *)(&dictionary[(xt - 2) - ((FORTH_ALIGN(name_length)) / sizeof(forth_cell_t))]), name_length);
 		}
 	}
+
+	return 0;
 }
 
-static void forth_show_executing(struct forth_runtime_context *rctx, forth_cell_t w, forth_cell_t xt)
+static int forth_show_executing(struct forth_runtime_context *rctx, forth_cell_t w, forth_cell_t xt)
 {
 //	forth_cell_t token_primitive;
 	// char buffer[32];
@@ -1170,11 +1200,11 @@ static void forth_show_executing(struct forth_runtime_context *rctx, forth_cell_
 	rctx->write_string(rctx, p, (end - p) + 1);
 	forth_show_name(rctx, xt);
 	rctx->write_string(rctx, end, 1);
-	forth_dots(rctx);
+	return forth_dots(rctx);
 	// rctx->send_cr(rctx);
 }
 
-static void forth_print_next_symbol(struct forth_runtime_context *rctx, forth_cell_t dictionary[], forth_cell_t *ix)
+static int forth_print_next_symbol(struct forth_runtime_context *rctx, forth_cell_t dictionary[], forth_cell_t *ix)
 {
 	forth_cell_t xt = dictionary[(*ix)++];
 	forth_scell_t offset;
@@ -1249,10 +1279,11 @@ static void forth_print_next_symbol(struct forth_runtime_context *rctx, forth_ce
 	{
 		forth_show_name(rctx, xt);
 	}
-	rctx->send_cr(rctx);
+
+	return rctx->send_cr(rctx);
 }
 
-static void forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionary[], forth_cell_t xt)
+static int forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionary[], forth_cell_t xt)
 {
 	forth_cell_t ix;
 
@@ -1260,8 +1291,7 @@ static void forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionar
 	{
 		forth_type0(rctx, "Primitive: ");
 		forth_show_name(rctx, xt);
-		rctx->send_cr(rctx);
-		return;
+		return rctx->send_cr(rctx);
 	}
 
 	if (FORTH_IS_NOT_TOKEN(dictionary[xt]))
@@ -1269,8 +1299,7 @@ static void forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionar
 		forth_type0(rctx, " ' ");
 		forth_show_name(rctx, dictionary[xt]);
 		forth_type0(rctx, " SYNONYM ");
-		forth_show_name(rctx, xt);
-		return;
+		return forth_show_name(rctx, xt);
 	}
 
 	switch(FORTH_EXTRACT_TOKEN(dictionary[xt]))
@@ -1307,6 +1336,14 @@ static void forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionar
 			forth_show_name(rctx, xt);
 		break;
 
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+		case FORTH_TOKEN_doextern:
+			forth_show_name(rctx, xt);
+			forth_type0(rctx, " External-primitive[ ");
+			forth_dot(rctx, rctx->base, dictionary[xt + 1]);
+			forth_type0(rctx, "]");
+		break;
+#endif
 #if defined(FORTH_USER_VARIABLES)
 		case FORTH_TOKEN_douser:
 			forth_type0(rctx, "USER ");
@@ -1352,10 +1389,10 @@ static void forth_see(struct forth_runtime_context *rctx, forth_cell_t dictionar
 		default:
 			forth_show_name(rctx, dictionary[xt]);
 			forth_type0(rctx, " ???");
-		return;	
+		break;
 	}
 
-	rctx->send_cr(rctx);
+	return rctx->send_cr(rctx);
 }
 
 forth_scell_t forth_compare_environment(const char *qs, const char *es, forth_cell_t len)
@@ -1465,12 +1502,12 @@ forth_cell_t forth_translate_token(forth_cell_t xt)
 }
 
 // =======================================================================================
-int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_cell_t word_to_exec)
+int forth(struct forth_runtime_context *rctx, forth_cell_t word_to_exec)
 {
 	register forth_index_t ip = rctx->ip;
 	register forth_cell_t  *sp = rctx->sp;
 	register forth_cell_t  *rp = rctx->rp;
-//	register forth_cell_t  *dictionary = pctx->dictionary;
+	register forth_cell_t  *dictionary = rctx->dictionary;
 	register forth_cell_t  w = 0;
 	register forth_cell_t  xt = word_to_exec;
 	forth_cell_t token_primitive;
@@ -1481,6 +1518,9 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 	char c;
 	char *src;
 	char *dest;
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+	forth_external_primitive ep;
+#endif
 
 #define POP() *(sp++)
 #define PUSH(X) *(--sp) = ((forth_cell_t)(X))
@@ -1527,7 +1567,11 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 		if (rctx->trace)
 		{
 			rctx->sp = sp;
-			forth_show_executing(rctx, w, xt);
+			if (0 > forth_show_executing(rctx, w, xt))
+			{
+				// What to do here?
+				THROW(-57);
+			}
 		}
 		// printf("xt = 0x%08x\n", xt); fflush(stdout);
 		if (FORTH_IS_NOT_TOKEN(xt))
@@ -2078,7 +2122,10 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 			break;
 
 			case FORTH_TOKEN_DUMP:
-				forth_dump(rctx, (char *)(sp[1]), sp[0]);
+				if (0 > forth_dump(rctx, (char *)(sp[1]), sp[0]))
+				{
+					THROW(-57);
+				}
 				sp += 2;
 			break;
 
@@ -2166,7 +2213,10 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 			break;
 
 			case FORTH_TOKEN_DotName:	// .name
-				forth_show_name(rctx, POP());
+				if (0 > forth_show_name(rctx, POP()))
+				{
+					THROW(-57);
+				}
 			break;
 
 			case FORTH_TOKEN_CMOVE:
@@ -2652,7 +2702,10 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 			break;
 
 			case FORTH_TOKEN_WORDS:
-				forth_words(dictionary, rctx);
+				if (0 > forth_words(dictionary, rctx))
+				{
+					THROW(-57);
+				}
 			break;
 
 			case FORTH_TOKEN_ENVIRONMENTq:	// ENVIRONMENT?
@@ -2662,7 +2715,10 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 			break;
 
 			case FORTH_TOKEN_pSEE:	// (SEE) ( xt -- )
-				forth_see(rctx, dictionary, POP());
+				if (0 > forth_see(rctx, dictionary, POP()))
+				{
+					THROW(-57);
+				}
 			break;
 
 			case FORTH_TOKEN_ONLY:
@@ -3060,6 +3116,31 @@ int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_ce
 			case FORTH_TOKEN_doconst:
 				PUSH(dictionary[w + 1]);
 			break;
+
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+			case FORTH_TOKEN_doextern:
+				if (0 == rctx->external_primitive_table)
+				{
+					THROW(-21);
+				}
+
+				ep = rctx->external_primitive_table[dictionary[w + 1]];
+
+				if (0 == ep)
+				{
+					THROW(-21);
+				}
+
+				rctx->sp = sp;
+				tos = ep(rctx);
+				sp = rctx->sp;
+
+				if (0 != tos)
+				{
+					THROW(tos);
+				}
+			break;
+#endif
 
 #if defined(FORTH_USER_VARIABLES)
 			case FORTH_TOKEN_USER_ALLOT:	// USER-ALLOT ( n -- ix )

@@ -1,3 +1,8 @@
+v0.0.5
+-- External primitives -- basically the ability to call C functions that can be registered at run time and don't need to have the core regenerated.
+-- More error checking on I/O so that if the input or output is closed we notice.
+-- Various minor code clean ups to eliminate warnings.
+
 v0.0.4
 
 -- Miscellaneous bug fixes to the search order words (they were really broken).

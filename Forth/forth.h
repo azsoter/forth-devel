@@ -1,7 +1,7 @@
 #ifndef FORTH_H
 #define FORTH_H
 /*
-* Copyright (c) 2014 Andras Zsoter
+* Copyright (c) 2014-2015 Andras Zsoter
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@
 
 // The Version number of the forth engine.
 // 3 Bytes: Major, minor, patch.
-#define FORTH_ENGINE_VERSION 0x00000004	// I.e.: 0.0.4
+#define FORTH_ENGINE_VERSION 0x00000005	// I.e.: 0.0.5
 
 #if defined(FORTH_USER_VARIABLES)
 
@@ -274,6 +274,9 @@ enum forth_token_t
 	FORTH_TOKEN_dovar,
 	FORTH_TOKEN_doconst,
 	FORTH_TOKEN_docreate,
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+	FORTH_TOKEN_doextern,
+#endif
 #if defined(FORTH_USER_VARIABLES)
 	FORTH_TOKEN_douser,
 #endif
@@ -305,8 +308,15 @@ struct forth_header
 	forth_cell_t flags;
 };
 
+typedef struct forth_runtime_context *forth_runtime_context_p;
+
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+typedef forth_cell_t (*forth_external_primitive)(forth_runtime_context_p rctx);
+#endif
+
 struct forth_runtime_context
 {
+	forth_cell_t	*dictionary;
 	forth_cell_t	*sp_max;
 	forth_cell_t	*sp_min;
 	forth_cell_t	*sp0;
@@ -330,6 +340,9 @@ struct forth_runtime_context
 	forth_dcell_t	source_file_position;
 	forth_cell_t	line_no;
 	char file_buffer[FORTH_FILE_INPUT_BUFFER_LENGTH];
+#endif
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+	forth_external_primitive *external_primitive_table;
 #endif
 	forth_cell_t	*wordlists;	// Wordlists in the search order.
 	forth_cell_t	wordlist_slots;	// The number of slots in the search order.
@@ -363,7 +376,7 @@ struct forth_runtime_context
 #endif
 };
 
-extern int forth(forth_cell_t *dictionary, struct forth_runtime_context *rctx, forth_cell_t word_to_exec);
+extern int forth(struct forth_runtime_context *rctx, forth_cell_t word_to_exec);
 
 #endif
 

@@ -3,7 +3,7 @@
 // Feature definitions for the Embeddable Forth Command Interpreter.
 
 /*
-* Copyright (c) 2014 Andras Zsoter
+* Copyright (c) 2014-2015 Andras Zsoter
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +64,10 @@
 
 // #undef FORTH_ALLOW_0X_HEX 
 #define FORTH_ALLOW_0X_HEX 1	/* Allow C-style hex numbers starting with 0x. */
+
+// External primitives implemented as separate C function in the application -- not as tokens in the Forth core.
+// #undef FORTH_EXTERNAL_PRIMITIVES
+#define FORTH_EXTERNAL_PRIMITIVES 1
 
 #define FORTH_STACK_CHECK_ENABLED
 

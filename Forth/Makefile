@@ -10,11 +10,11 @@ endif
 
 CC = gcc
 
-CFLAGS += -O3
+CFLAGS += -O3 -Wall
 
 default: forth
 
-forth: $(MAIN_OBJ) forth.o forth_dict.o forth_file_access_stdio.o forth_memory_malloc.o forth_posix.o
+forth: $(MAIN_OBJ) forth.o forth_dict.o forth_file_access_stdio.o forth_memory_malloc.o forth_posix.o forth_interface.o
 	$(CC) $(CFLAGS) $^ -o forth $(LDFLAGS)
 
 forth_file_access_stdo.o: forth_file_access_stdio.c forth_internal.h forth.h forth_config.h forth_features.h 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2014 Andras Zsoter
+* Copyright (c) 2014-2015 Andras Zsoter
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -40,10 +40,10 @@ uint32_t latest = 0;
 #define CELL_FORMAT "0x%08x"
 #endif
 
-uint16_t gen_str(FILE* f, const char *str, size_t len)
+void gen_str(FILE* f, const char *str, size_t len)
 {
 	size_t l;
-	forth_cell_t chunk;
+	forth_cell_t chunk = 0;
 	size_t byte_index;
 #if defined(FORTH_32BIT)
 	size_t bytes_per_cell = 4;
@@ -126,7 +126,7 @@ static const char *forth_label(forth_cell_t ix)
 
 void If(FILE *fc, FILE *fh) // -- Orig
 {
-	char if_buffer[256];
+	// char if_buffer[256];
 	PUSH(target_ix);
 	fprintf(fc, "FORTH_PACK_TOKEN(FORTH_TOKEN_0branch) | FORTH_PARAM_PACK(%s - " CELL_FORMAT "),\n", forth_label(target_ix++), ip + 1);
 	ip++;
@@ -185,7 +185,7 @@ void Repeat(FILE *fc, FILE *fh) // Orig Dest --
 
 void Lit(FILE *fc, FILE *fh, forth_cell_t value)
 {
-	char buffer[256];
+	// char buffer[256];
 	forth_cell_t packed = FORTH_PARAM_PACK(value);
 	if (FORTH_PARAM_EXTRACT(packed) == value)
 	{
@@ -2287,5 +2287,7 @@ int main()
 	fputs("#endif\n", fh);
 	fclose(fc);
 	fclose(fh);
+
+	return 0;
 }
 

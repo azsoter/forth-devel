@@ -2,7 +2,7 @@
  * Test program to run on Linux/POSIX.
  * for the Embeddable Forth Command Interpreter.
  * Written by Andras Zsoter.
- * This is a quick and dirty example how to control the Forth Engine over a telnet connection.
+ * This is a quick and dirty example how to control the Forth Engine on a terminal.
  * You can treat the contents of this file as public domain.
  *
  * Attribution is appreciated but not mandatory for the contents of this file.
@@ -34,18 +34,21 @@ int reset_curses(void)
 	idlok(stdscr,TRUE);
  	keypad(stdscr,TRUE);
  	nonl();
+	return 0; // No trivial to check.
 }
 
 int init_curses(void)
 {
-	initscr();
+	WINDOW *w;
+	w = initscr();
 	start_color();
 	reset_curses();
+	return (0 == w) ? -1 : 0;
 }
 
 int close_curses(void)
 {
-	endwin();
+	return (ERR == endwin()) ? -1 : 0;
 }
 
 int emit_char(char c)
@@ -55,7 +58,7 @@ int emit_char(char c)
 		c = '\n';
 	}
 
-	addch(c);
+	return (ERR == addch(c)) ? -1 : 0;
 }
 
 int write_str(struct forth_runtime_context *rctx, const char *str, forth_cell_t length)
@@ -153,7 +156,7 @@ forth_cell_t ekey_to_char(struct forth_runtime_context *rctx, forth_cell_t ek)
 
 forth_scell_t accept_str(struct forth_runtime_context *rctx, char *buffer, forth_cell_t length)
 {
-	char *res;
+	// char *res;
 	forth_cell_t count = 0;
 	char k;
 
@@ -192,8 +195,9 @@ forth_scell_t accept_str(struct forth_runtime_context *rctx, char *buffer, forth
 
 int main()
 {
-	forth_cell_t tmp;
+	// forth_cell_t tmp;
 
+	r_ctx.dictionary = dictionary;
 	r_ctx.sp0 = &data_stack[255];
 	r_ctx.sp = &data_stack[255];
 	r_ctx.sp_max = &data_stack[255];
@@ -231,7 +235,7 @@ int main()
 
 	init_curses();
 	
-	forth(dictionary, &r_ctx, FORTH_XT_QUIT);
+	forth(&r_ctx, FORTH_XT_QUIT);
 
 	close_curses();
 

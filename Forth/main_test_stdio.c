@@ -1,3 +1,17 @@
+/*
+ * Test program to run on Linux/POSIX.
+ * for the Embeddable Forth Command Interpreter.
+ * Written by Andras Zsoter.
+ * This is a quick and dirty example how to control the Forth Engine on a terminal.
+ * You can treat the contents of this file as public domain.
+ *
+ * Attribution is appreciated but not mandatory for the contents of this file.
+ *
+ */
+
+// http://forth.teleonomix.com/
+
+
 #include "forth.h"
 #include "forth_internal.h"
 #include "forth_dict.h"
@@ -85,10 +99,60 @@ forth_cell_t ekey_to_char(struct forth_runtime_context *rctx, forth_cell_t ek)
 	return ek >> 8;
 }
 
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+#include "forth_interface.h"
+forth_cell_t test_square(forth_runtime_context_p rctx)
+{
+	*(rctx->sp) = *(rctx->sp) * *(rctx->sp);
+	return 0;
+}
+
+forth_cell_t test_inc(forth_runtime_context_p rctx)
+{
+	*(rctx->sp) += 1;
+	return 0;
+}
+
+forth_external_primitive external_primitive_table[] = { test_square, test_inc };
+
+static void register_primitive(struct forth_runtime_context *rctx, const char *name, forth_cell_t index)
+{
+	int res = forth_register_external_primitive(rctx, name, index);
+
+	if (0 != res)
+	{
+		printf("Return value = %d at item %d (%s).\n", res, index, name);
+	}
+}
+
+static int init_externals(struct forth_runtime_context *rctx)
+{
+	int i;
+	for (i = 0; i < sizeof(external_primitive_table) / sizeof(forth_external_primitive); i++)
+	{
+		if (test_square == external_primitive_table[i])
+		{
+			register_primitive(rctx, "SQUARE", i);
+		}
+		else if (test_inc == external_primitive_table[i])
+		{
+			register_primitive(rctx, "INC", i);
+		}
+		else
+		{
+			printf("Undefined external primitive at index = %d.\n", i);
+		}
+	}
+
+	return 0;
+}
+#endif
+
 int main()
 {
-	forth_cell_t tmp;
+	// forth_cell_t tmp;
 
+	r_ctx.dictionary = dictionary;
 	r_ctx.sp0 = &data_stack[255];
 	r_ctx.sp = &data_stack[255];
 	r_ctx.sp_max = &data_stack[255];
@@ -122,8 +186,11 @@ int main()
 	r_ctx.ekey = &ekey;
 	r_ctx.ekey_q = &ekey_q;
 	r_ctx.ekey_to_char = &ekey_to_char;
-
-	forth(dictionary, &r_ctx, FORTH_XT_QUIT);
+#if defined(FORTH_EXTERNAL_PRIMITIVES)
+	r_ctx.external_primitive_table = external_primitive_table;
+	init_externals(&r_ctx);
+#endif
+	forth(&r_ctx, FORTH_XT_QUIT);
 
 	return 0;
 }
